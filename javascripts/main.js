@@ -14,6 +14,7 @@ define([
   // chosen is listed here as a dependency because it's used from a jQuery
   // selector, and needs to be ready before this code runs
   'chosen',
+  './filterProjects',
 ], (
   $,
   loadProjects,
@@ -21,7 +22,8 @@ define([
   fetchIssueCount,
   _,
   sammy,
-  setupDarkModeListener
+  setupDarkModeListener,
+  ProjectFilter
 ) => {
   let compiledtemplateFn = null,
     projectsPanel = null;
@@ -322,30 +324,19 @@ define([
       window.location.href = `#/tags/${tagsString}`;
     });
 
-    loadProjects().then((p) => {
-      const projectsSvc = new ProjectsService(p);
+    const projectFilter = new ProjectFilter();
 
-      const app = sammy(function () {
-        /*
-         * This is the route used to filter by tags/names/labels
-         * It ensures to read values from the URI query param and perform actions
-         * based on that. NOTE: It has major side effects on the browser.
-         */
-        this.get(/\#\/filters/, () => {
-          const labels = prepareForHTML(getParameterByName('labels'));
-          const names = prepareForHTML(getParameterByName('names'));
-          const tags = prepareForHTML(getParameterByName('tags'));
-          const date = getParameterByName('date');
-          renderProjects(projectsSvc, tags, names, labels, date);
-        });
+    // When projects are loaded
+    loadProjects().then((projects) => {
+      // Update the label list
+      projectFilter.updateLabelList(projects);
 
-        this.get('/', () => {
-          renderProjects(projectsSvc);
-        });
+      // Listen for filter changes
+      window.addEventListener('projectsFiltered', () => {
+        const filteredProjects = projectFilter.filterProjects(projects);
+        // Re-render your projects here with the filtered list
+        renderProjects(filteredProjects, true);
       });
-
-      app.raise_errors = true;
-      app.run('#/');
     });
   });
 });
